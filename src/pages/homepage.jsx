@@ -7,16 +7,16 @@ const HomePage = () => {
   const navigate = useNavigate();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSignupOpen, setIsSignupOpen] = useState(false);
-  const [credentials, setCredentials] = useState({ loginId: "", password: "", role: "employee" });
+  const [credentials, setCredentials] = useState({ email: "", password: "", role: "employee" });
   const [signupData, setSignupData] = useState({
     role: "employee",
-    name: "",  // This maps to fullName for admin, name for employee/hr
     username: "",
-    password: "",
     email: "",
-    mobile: "",
-    gender: "",
+    password: "",
+    phone: "",
+    address: "",
     department: "",
+    hrPosition: "",
   });
   const [errors, setErrors] = useState({});
   const [signupErrors, setSignupErrors] = useState({});
@@ -25,7 +25,7 @@ const HomePage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:8090/api/admins")
+    fetch("http://localhost:8080/api/admins")
       .then((res) => res.json())
       .then((data) => console.log("Admin data:", data))
       .catch((err) => console.error(err));
@@ -47,8 +47,7 @@ const HomePage = () => {
   // Validation
   const validateForm = () => {
     const newErrors = {};
-    if (!credentials.loginId.trim()) 
-      newErrors.loginId = credentials.role === "admin" ? "Email is required" : "ID is required";
+    if (!credentials.email.trim()) newErrors.email = "Email is required";
     if (!credentials.password) newErrors.password = "Password is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -56,10 +55,16 @@ const HomePage = () => {
 
   const validateSignupForm = () => {
     const newErrors = {};
-    if (!signupData.name.trim()) newErrors.name = "Name is required";
     if (!signupData.username.trim()) newErrors.username = "Username is required";
-    if (!signupData.password) newErrors.password = "Password is required";
     if (!signupData.email.trim()) newErrors.email = "Email is required";
+    if (!signupData.password) newErrors.password = "Password is required";
+    if (signupData.role === "employee") {
+      if (!signupData.phone) newErrors.phone = "Phone is required";
+      if (!signupData.address) newErrors.address = "Address is required";
+      if (!signupData.department) newErrors.department = "Department is required";
+    } else if (signupData.role === "hr") {
+      if (!signupData.hrPosition) newErrors.hrPosition = "HR Position is required";
+    }
     setSignupErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -71,17 +76,17 @@ const HomePage = () => {
     setIsLoading(true);
 
     const loginPayload = {
-      loginId: credentials.loginId,
+      email: credentials.email,
       password: credentials.password
     };
 
     let url = "";
     if (credentials.role === "admin") {
-      url = "http://localhost:8090/api/admins/login";
+      url = "http://localhost:8080/api/admins/login";
     } else if (credentials.role === "employee") {
-      url = "http://localhost:8090/api/employees/login";
+      url = "http://localhost:8080/api/employees/login";
     } else if (credentials.role === "hr") {
-      url = "http://localhost:8090/api/hr/login";
+      url = "http://localhost:8080/api/hr/login";
     }
 
     try {
@@ -122,19 +127,29 @@ const HomePage = () => {
     setIsSignupLoading(true);
 
     let url = "";
+    let payload = {
+      username: signupData.username,
+      email: signupData.email,
+      password: signupData.password
+    };
+
     if (signupData.role === "admin") {
-      url = "http://localhost:8090/api/admins/create";
+      url = "http://localhost:8080/api/admins/create";
     } else if (signupData.role === "employee") {
-      url = "http://localhost:8090/api/employees/create";
+      url = "http://localhost:8080/api/employees/create";
+      payload.phone = signupData.phone;
+      payload.address = signupData.address;
+      payload.department = signupData.department;
     } else if (signupData.role === "hr") {
-      url = "http://localhost:8090/api/hr/create";
+      url = "http://localhost:8080/api/hr/create";
+      payload.hrPosition = signupData.hrPosition;
     }
 
     try {
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signupData)  // Sends "name" field for all roles
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -146,7 +161,7 @@ const HomePage = () => {
           closeSignup();
           setIsLoginOpen(true);
           setCredentials({
-            loginId: signupData.email,
+            email: signupData.email,
             password: signupData.password,
             role: "admin"
           });
@@ -169,20 +184,20 @@ const HomePage = () => {
   const openSignup = () => { setIsSignupOpen(true); setIsLoginOpen(false); };
   const closeLogin = () => { 
     setIsLoginOpen(false); 
-    setCredentials({ loginId: "", password: "", role: "employee" }); 
+    setCredentials({ email: "", password: "", role: "employee" }); 
     setErrors({}); 
   };
   const closeSignup = () => { 
     setIsSignupOpen(false); 
     setSignupData({ 
       role: "employee", 
-      name: "", 
       username: "", 
-      password: "", 
       email: "", 
-      mobile: "", 
-      gender: "", 
-      department: "" 
+      password: "", 
+      phone: "", 
+      address: "", 
+      department: "", 
+      hrPosition: "" 
     }); 
     setSignupErrors({}); 
   };
@@ -319,28 +334,20 @@ const HomePage = () => {
                 </div>
               </div>
               <div className="input-group">
-                <label htmlFor="loginId">
-                  {credentials.role === "admin" ? "Email" : credentials.role === "hr" ? "HR ID" : "Employee ID"}
-                </label>
+                <label htmlFor="email">Email</label>
                 <div className="input-with-icon">
-                  <i className={credentials.role === "admin" ? "fas fa-envelope" : "fas fa-id-card"}></i>
+                  <i className="fas fa-envelope"></i>
                   <input
-                    type={credentials.role === "admin" ? "email" : "text"}
-                    id="loginId"
-                    name="loginId"
-                    value={credentials.loginId}
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={credentials.email}
                     onChange={handleInputChange}
-                    placeholder={
-                      credentials.role === "admin"
-                        ? "Enter your email"
-                        : credentials.role === "hr"
-                        ? "Enter your HR ID"
-                        : "Enter your Employee ID"
-                    }
-                    className={errors.loginId ? "error" : ""}
+                    placeholder="Enter your email"
+                    className={errors.email ? "error" : ""}
                   />
                 </div>
-                {errors.loginId && <span className="error-message">{errors.loginId}</span>}
+                {errors.email && <span className="error-message">{errors.email}</span>}
               </div>
               <div className="input-group">
                 <label htmlFor="password">Password</label>
@@ -399,21 +406,6 @@ const HomePage = () => {
                 </div>
               </div>
               <div className="input-group">
-                <label htmlFor="name">Full Name</label>
-                <div className="input-with-icon">
-                  <i className="fas fa-user"></i>
-                  <input 
-                    type="text" 
-                    id="name" 
-                    name="name" 
-                    value={signupData.name} 
-                    onChange={handleSignupInputChange} 
-                    placeholder="Enter your full name" 
-                    className={signupErrors.name ? "error" : ""}/>
-                </div>
-                {signupErrors.name && <span className="error-message">{signupErrors.name}</span>}
-              </div>
-              <div className="input-group">
                 <label htmlFor="username">Username</label>
                 <div className="input-with-icon">
                   <i className="fas fa-user-circle"></i>
@@ -458,48 +450,82 @@ const HomePage = () => {
                 </div>
                 {signupErrors.password && <span className="error-message">{signupErrors.password}</span>}
               </div>
-              {signupData.role !== "admin" && (
+              {signupData.role === "employee" && (
                 <>
                   <div className="input-group">
-                    <label htmlFor="mobile">Mobile</label>
+                    <label htmlFor="phone">Phone</label>
                     <div className="input-with-icon">
                       <i className="fas fa-phone"></i>
                       <input 
                         type="text" 
-                        id="mobile" 
-                        name="mobile" 
-                        value={signupData.mobile} 
+                        id="phone" 
+                        name="phone" 
+                        value={signupData.phone} 
                         onChange={handleSignupInputChange} 
-                        placeholder="Enter mobile number" />
+                        placeholder="Enter phone number" 
+                        className={signupErrors.phone ? "error" : ""}/>
                     </div>
+                    {signupErrors.phone && <span className="error-message">{signupErrors.phone}</span>}
                   </div>
                   <div className="input-group">
-                    <label htmlFor="gender">Gender</label>
+                    <label htmlFor="address">Address</label>
                     <div className="input-with-icon">
-                      <i className="fas fa-venus-mars"></i>
-                      <select id="gender" name="gender" value={signupData.gender} onChange={handleSignupInputChange}>
-                        <option value="">Select Gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
+                      <i className="fas fa-map-marker-alt"></i>
+                      <input 
+                        type="text" 
+                        id="address" 
+                        name="address" 
+                        value={signupData.address} 
+                        onChange={handleSignupInputChange} 
+                        placeholder="Enter your address" 
+                        className={signupErrors.address ? "error" : ""}/>
+                    </div>
+                    {signupErrors.address && <span className="error-message">{signupErrors.address}</span>}
+                  </div>
+                  <div className="input-group">
+                    <label htmlFor="department">Department</label>
+                    <div className="input-with-icon">
+                      <i className="fas fa-building"></i>
+                      <select 
+                        id="department" 
+                        name="department" 
+                        value={signupData.department} 
+                        onChange={handleSignupInputChange} 
+                        className={signupErrors.department ? "error" : ""}
+                        required
+                      >
+                        <option value="">Select Department</option>
+                        <option value="technical">Technical</option>
+                        <option value="sales">Sales</option>
+                        <option value="marketing">Marketing</option>
+                        <option value="finance">Finance</option>
                       </select>
                     </div>
+                    {signupErrors.department && <span className="error-message">{signupErrors.department}</span>}
                   </div>
                 </>
               )}
-              {signupData.role === "employee" && (
+              {signupData.role === "hr" && (
                 <div className="input-group">
-                  <label htmlFor="department">Department</label>
+                  <label htmlFor="hrPosition">HR Position</label>
                   <div className="input-with-icon">
-                    <i className="fas fa-building"></i>
-                    <input 
-                      type="text" 
-                      id="department" 
-                      name="department" 
-                      value={signupData.department} 
+                    <i className="fas fa-user-tie"></i>
+                    <select 
+                      id="hrPosition" 
+                      name="hrPosition" 
+                      value={signupData.hrPosition} 
                       onChange={handleSignupInputChange} 
-                      placeholder="Enter your department" />
+                      className={signupErrors.hrPosition ? "error" : ""}
+                      required
+                    >
+                      <option value="">Select HR Position</option>
+                      <option value="technical">Technical</option>
+                      <option value="sales">Sales</option>
+                      <option value="marketing">Marketing</option>
+                      <option value="finance">Finance</option>
+                    </select>
                   </div>
+                  {signupErrors.hrPosition && <span className="error-message">{signupErrors.hrPosition}</span>}
                 </div>
               )}
               <button type="submit" className={`login-btn ${isSignupLoading ? "loading" : ""}`} disabled={isSignupLoading}>
